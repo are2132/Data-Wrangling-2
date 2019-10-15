@@ -1,0 +1,129 @@
+---
+title: "Reading from the Web"
+author: "Alison Elgass"
+date: "10/10/2019"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(httr)
+```
+
+# Extracting Tibbles from HTML + CSS code
+
+### Data from "National survey on drug use"
+```{r}
+drug_url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+drug_use_xml = read_html(drug_url) #read html code from above url
+
+#extract the tables (15 total) from the webpage
+drug_use_xml %>%
+  html_nodes(css = "table")
+
+#extract table 1 (marijuana use) of the 15 on the page
+drug_use_xml %>%
+  html_nodes(css = "table") %>% 
+  .[[1]]
+
+#now actually save table 1 data as a tibble
+table_marj = drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>%        #same as above
+  html_table() %>%  
+  slice(-1) %>%     #remove first row (captions)
+  as_tibble()       #tibble
+```
+Success!!  
+
+## Using CSS Selectors 
+### Harry Potter IMDB example
+```{r}
+hpsaga_html = 
+  read_html("https://www.imdb.com/list/ls000630791/")
+```
+
+Use selector gadget to find css tags
+```{r}
+title_vec =
+  hpsaga_html %>% 
+  html_nodes(".lister-item-header a") %>% 
+  html_text()
+
+gross_rev_vec = 
+  hpsaga_html %>%
+  html_nodes(".text-small:nth-child(7) span:nth-child(5)") %>%
+  html_text()
+
+runtime_vec = 
+  hpsaga_html %>%
+  html_nodes(".runtime") %>%
+  html_text()
+  
+#now put them together
+hpsaga_df = 
+  tibble(
+    title = title_vec,
+    rev = gross_rev_vec,
+    runtime = runtime_vec
+  )
+```
+
+### Napoleon Dynamite Amazon Reviews example
+```{r}
+dynamite_url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1"
+
+dynamite_html = read_html(dynamite_url)
+
+#not working for right now...try again later
+review_titles = 
+  dynamite_html %>%
+  html_nodes(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = 
+  dynamite_html %>%
+  html_nodes(".review-text-content span") %>%
+  html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+```
+
+
+# Using an API
+
+### NYC water consumption
+From website https://data.cityofnewyork.us/Environment/Water-Consumption-In-The-New-York-City/ia2d-e54m
+1. Go to ... extra settings > API docs
+2. Then toggle from json to csv and copy that link
+
+```{r}
+nyc_water = 
+  GET("https://data.cityofnewyork.us/resource/waf7-5gvc.csv") %>% 
+  content("parsed")
+```
+Success! Note this is super easy because API was straightforward and data is already in a nice table format.  
+
+### Pokemon example
+
+```{r}
+poke = 
+  GET("http://pokeapi.co/api/v2/pokemon/1") %>%
+  content()
+
+poke$name
+poke$abilities
+```
+
+
